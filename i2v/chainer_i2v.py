@@ -15,10 +15,12 @@ except:
 from chainer.backends import cuda
 xp = cuda.cupy
 
+GPU_ID = 0
+
 class ChainerI2V(Illustration2VecBase):
 
     def __init__(self, *args, **kwargs):
-        chainer.cuda.get_device(0).use()
+        chainer.cuda.get_device(GPU_ID).use()
         super(ChainerI2V, self).__init__(*args, **kwargs)
         mean = np.array([ 164.76139251,  167.47864617,  181.13838569])
         self.mean = mean
@@ -83,7 +85,7 @@ def make_i2v_with_chainer(param_path, tag_path=None, threshold_path=None):
     # ignore UserWarnings from chainer
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        cuda.get_device_from_id(0).use()
+        cuda.get_device_from_id(GPU_ID).use()
         net = CaffeFunction(param_path).to_gpu()
 
     kwargs = {}
