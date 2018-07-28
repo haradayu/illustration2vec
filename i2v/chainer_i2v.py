@@ -2,16 +2,23 @@ from i2v.base import Illustration2VecBase
 import json
 import warnings
 import numpy as np
+from distutils.version import StrictVersion
 from scipy.ndimage import zoom
 from skimage.transform import resize
+import chainer
 from chainer import Variable
 from chainer.functions import average_pooling_2d, sigmoid
-from chainer.functions.caffe import CaffeFunction
-
+try:
+    from chainer.functions.caffe import CaffeFunction
+except:
+    from chainer.links.caffe import CaffeFunction
+from chainer.backends import cuda
+xp = cuda.cupy
 
 class ChainerI2V(Illustration2VecBase):
 
     def __init__(self, *args, **kwargs):
+        chainer.cuda.get_device(0).use()
         super(ChainerI2V, self).__init__(*args, **kwargs)
         mean = np.array([ 164.76139251,  167.47864617,  181.13838569])
         self.mean = mean
@@ -46,8 +53,16 @@ class ChainerI2V(Illustration2VecBase):
         input_ = input_[:, :, :, ::-1]  # RGB to BGR
         input_ -= self.mean  # subtract mean
         input_ = input_.transpose((0, 3, 1, 2))  # (N, H, W, C) -> (N, C, H, W)
+        input_ = xp.asarray(input_)
         x = Variable(input_)
-        y, = self.net(inputs={'data': x}, outputs=[layername], train=False)
+
+        # train argument is not supported from Ver2.
+        if StrictVersion(chainer.__version__) < StrictVersion('2.0.0'):
+            y, = self.net(inputs={'data': x}, outputs=[layername], train=False)
+        else:
+            chainer.using_config('train', False)
+            y, = self.net(inputs={'data': x}, outputs=[layername])
+
         return y
 
     def _extract(self, inputs, layername):
@@ -68,7 +83,8 @@ def make_i2v_with_chainer(param_path, tag_path=None, threshold_path=None):
     # ignore UserWarnings from chainer
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        net = CaffeFunction(param_path)
+        cuda.get_device_from_id(0).use()
+        net = CaffeFunction(param_path).to_gpu()
 
     kwargs = {}
     if tag_path is not None:

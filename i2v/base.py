@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
+from chainer.backends import cuda
+xp = cuda.cupy
 
 
 class Illustration2VecBase(object):
@@ -50,6 +52,7 @@ class Illustration2VecBase(object):
 
     def estimate_top_tags(self, images, n_tag=10):
         prob = self._estimate(images)
+        prob = cuda.to_cpu(prob)
         general_prob = prob[:, :512]
         character_prob = prob[:, 512:1024]
         copyright_prob = prob[:, 1024:1536]
